@@ -1,41 +1,45 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 
 namespace SoupRssScrapper
 {
-    public class SoupRssScrapper : IRssScrapper
+    public class SoupRssScrapper
     {
         private const string ReqexImageUrlPattern = @"(https?:\/\/[^\s]+?).(jpe?g|png|[tg]iff?|svg|gif)";
-        private const string RssPath = @"C:\Users\tnowakow\Documents\_Private\SoupRssScrapper\soup.rss";
-        private const string ImagesDirectoryPath = @"SoupImages";
+        private const string DefaultImagesDirectoryPath = @"SoupImages";
 
-        public static void DownloadSoupImagesFromRss()
+        public static void DownloadSoupImagesFromRss(string rssPath, string outputDir = DefaultImagesDirectoryPath)
         {
-            string content = ReadRssFileContent();
+            string content = ReadRssFileContent(rssPath);
 
             Regex rg = new Regex(ReqexImageUrlPattern);
-            MatchCollection matchedLinks = rg.Matches(content);
+            MatchCollection mc = rg.Matches(content);                        
+            var matchedLinks = mc.Distinct().ToList();
 
-            System.Console.WriteLine("count: " + matchedLinks.Count);
-            foreach (var imageLink in matchedLinks)
-            {
+            int count = matchedLinks.Count();
+            LogStep($"Found {count} links.");
+
+            for(int i = 0; i < count; i++)
+            {                                
                 try
                 {
-                    DownloadImage(imageLink.ToString());
+                    LogStep($"Processing element {i} out of {count}...");
+                    DownloadImage(matchedLinks[i].ToString(), outputDir);
                 }
                 catch
                 {
-                    WriteErrorLog(imageLink.ToString());
+                    WriteErrorLog(matchedLinks[i].ToString());
                 }
             }
         }
 
-        private static string ReadRssFileContent()
+        private static string ReadRssFileContent(string rssPath)
         {
-            using (StreamReader reader = new StreamReader(RssPath))
+            using (StreamReader reader = new StreamReader(rssPath))
             {
                 return reader.ReadToEnd();
             }
@@ -49,9 +53,9 @@ namespace SoupRssScrapper
             }
         }
 
-        private static void DownloadImage(string url)
+        private static void DownloadImage(string url, string outputDir)
         {
-            string fileName = GenerateFullFileNameFromUrl(url);
+            string fileName = GenerateFullFileNameFromUrl(url, outputDir);
 
             if (!File.Exists(fileName))
             {
@@ -62,9 +66,9 @@ namespace SoupRssScrapper
             }
         }
 
-        private static string GenerateFullFileNameFromUrl(string url)
+        private static string GenerateFullFileNameFromUrl(string url, string outputDir)
         {
-            var path = ImagesDirectoryPath;
+            var path = outputDir ?? DefaultImagesDirectoryPath;
             if (!Directory.Exists(path))
             {
                 Directory.CreateDirectory(path);
@@ -75,6 +79,11 @@ namespace SoupRssScrapper
 
             var filePath = Path.Combine(path, filename);
             return filePath;
+        }
+
+        private static void LogStep(string msg)
+        {
+            System.Console.WriteLine($"[] {msg}");
         }
     }
 }
